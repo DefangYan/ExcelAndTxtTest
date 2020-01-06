@@ -1,0 +1,178 @@
+
+import org.apache.commons.codec.binary.StringUtils;
+import org.apache.poi.xssf.usermodel.XSSFCell;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
+import java.io.*;
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * @author defang.yan
+ * @date 2020/1/2 9:58
+ */
+public class ReadCloumTest {
+
+
+    public static void main(String[] args) {
+        //final Map<String, String> prdDataBaseMap = ReadCloumTest.readTxt("C:\\Users\\admin\\Desktop\\t_payment_bank_cnaps.sql");
+        final Map<String, String> provinceAndCityMap = ReadCloumTest.readTxt("C:\\Users\\admin\\Desktop\\canps_province_city.sql");
+        final Map<String, String> bankTypeMap = ReadCloumTest.readTxt("C:\\Users\\admin\\Desktop\\bankType.sql");
+
+        //File file = new File("C:\\Users\\admin\\Desktop\\sssssss.xlsx");
+        File file = new File("C:\\Users\\admin\\Desktop\\开户行&联行号\\需要更新开户行和联行号.xlsx");
+        try {
+            final Map<String, String> correctlyMap = readExcel(file);
+            //new ReadCloumTest().compareAndSetNewMap(correctlyMap, prdDataBaseMap);
+             ReadCloumTest.SetBankType("C:\\Users\\admin\\Desktop\\updateExcel.txt",correctlyMap,bankTypeMap,provinceAndCityMap);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    private static Map<String, String> readExcel(File file) throws Exception {
+        int index = 0;
+        Map<String, String> correctMap = new HashMap<>();
+        InputStream inputStream = new FileInputStream(file.getAbsoluteFile());
+        XSSFWorkbook xssfWorkbook = new XSSFWorkbook(inputStream);
+        //获取第一页的对象
+        XSSFSheet sheetAt = xssfWorkbook.getSheetAt(0);
+        //获取总行数
+        int rows = sheetAt.getLastRowNum();
+
+        for (int i = 0; i < rows; i++) {
+            XSSFCell cell = sheetAt.getRow(i).getCell(index);
+            //cell1 获取第n+1列
+            XSSFCell cell1 = sheetAt.getRow(i).getCell(index + 1);
+            //correctMap.put(cell.getStringCellValue(),cell1.getStringCellValue());
+            correctMap.put(cell.getStringCellValue(), cell1.getStringCellValue());
+        }
+        return correctMap;
+    }
+
+
+    private static Map<String, String> readTxt(String name) {
+
+        //使用map 对每行读取的字符串进行存储
+        Map<String, String> prdMap = new HashMap<>();
+        int i = 0;
+        try {
+            File file = new File(name);
+            InputStreamReader inputReader = new InputStreamReader(new FileInputStream(file));
+            BufferedReader bf = new BufferedReader(inputReader);
+            // 按行读取字符串
+            String str;
+
+
+            while ((str = bf.readLine()) != null) {
+                i++;
+                String[] split = str.split(",");
+                //prdMap.put(split[0], split[1].replaceAll("'",""));
+                if (prdMap.containsKey(split[0].replaceAll("'", ""))) {
+                    System.out.println(split[0].replaceAll("'", ""));
+                }
+                prdMap.put(split[0], split[1].replaceAll("'", ""));
+            }
+            bf.close();
+            inputReader.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return prdMap;
+
+    }
+
+    private void compareAndSetNewMap(Map<String, String> map1, Map<String, String> map2) {
+        Map<String, String> insertMap = new HashMap<>();
+        Map<String, String> updateMap = new HashMap<>();
+        Map<String, String> deprecateMap = new HashMap<>();
+        map1.forEach((key, value) -> {
+            if (map2.containsKey(key)) {
+                if (!map2.get(key).equals(value)) {
+                    // update
+                    updateMap.put(key, value);
+                }
+            } else {
+                // insert
+                insertMap.put(key, value);
+            }
+        });
+
+        map2.forEach((key, value) -> {
+            if (!map1.containsKey(key)) {
+                deprecateMap.put(key, value);
+            }
+        });
+        ReadCloumTest.write("C:\\Users\\admin\\Desktop\\test1.txt", insertMap);
+        ReadCloumTest.write("C:\\Users\\admin\\Desktop\\test2.txt", updateMap);
+        ReadCloumTest.write("C:\\Users\\admin\\Desktop\\test23.txt", deprecateMap);
+    }
+
+
+    private static void SetBankType(String file, Map<String, String> correctlyMap, Map<String, String> bankTypeMap, Map<String, String> provinceAndCityMap) {
+        StringBuilder sb = new StringBuilder();
+        correctlyMap.forEach((key, value) -> {
+            String s = bankTypeMap.get(value.substring(0, 3));
+            String s1 = provinceAndCityMap.get(value.substring(3, 7));
+            if (s != null) {
+                sb.append(key).append(",").append(value).append(",").append(s).append(",").append(s1).append("\r\n");
+            } else {
+                System.out.println("开户行,联行号,bankType:" + key + value + s);
+            }
+            if (s1 == null) {
+                System.out.println("开户行,联行号,省份城市:" + key + value + s1);
+            }
+
+        });
+        try {
+            BufferedWriter input = new BufferedWriter(new OutputStreamWriter(
+                    new FileOutputStream(file, true)));
+            input.write("银行类型: " + sb.toString().replaceAll(":", ","));
+            input.newLine();
+            input.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    private static void write(String file, Map<String, String> valueOfMap1) {
+        StringBuilder sb = new StringBuilder();
+        valueOfMap1.forEach((key, value) -> {
+            sb.append(key).append(",").append(value).append("\r\n");
+        });
+        try {
+            BufferedWriter input = new BufferedWriter(new OutputStreamWriter(
+                    new FileOutputStream(file, true)));
+            input.write("联行号&银行名: " + sb.toString());
+            input.newLine();
+            input.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void setProvinceAndCity(String file, Map<String, String> correctlyMap, Map<String, String> provinceAndCityMap) {
+        StringBuilder sb = new StringBuilder();
+        correctlyMap.forEach((key, value) -> {
+            String s = provinceAndCityMap.get(value.substring(3, 7));
+            if (s != null) {
+                sb.append(key).append(",").append(value).append(",").append(s).append("\r\n");
+            } else {
+                System.out.println("开户行,联行号,省市" + key + value + s);
+            }
+
+        });
+        try {
+            BufferedWriter input = new BufferedWriter(new OutputStreamWriter(
+                    new FileOutputStream(file, true)));
+            input.write("银行省市: " + sb.toString());
+            input.newLine();
+            input.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
